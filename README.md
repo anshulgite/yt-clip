@@ -119,6 +119,10 @@ OPENAI_API_KEY=sk-...
 > If no API key is provided, ClipShort AI automatically uses its intelligent local speech timing engine, so you can explore all subtitle styles, animations, and exports offline.
 
 ### 3. Run the Development Server
+**1-Click Start (Windows):**
+Simply double-click `start.bat` in the project folder. It will verify your environment, install dependencies if needed, start the Next.js server, and automatically open your default browser.
+
+**Or via terminal:**
 ```bash
 npm run dev
 ```
