@@ -32,6 +32,8 @@ export default function VerticalShortCard({
 }: VerticalShortCardProps) {
   const { videoMetadata } = useClipStore();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoTopRef = useRef<HTMLVideoElement>(null);
+  const videoBottomRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
@@ -43,6 +45,10 @@ export default function VerticalShortCard({
   );
 
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const isSplit = clip.videoSettings?.cropMode === "split";
+  const b1 = clip.videoSettings?.dualBox?.box1 || { x: 5, y: 10, width: 45, height: 80 };
+  const b2 = clip.videoSettings?.dualBox?.box2 || { x: 50, y: 10, width: 45, height: 80 };
 
   // Guarantee valid playable stream URL, never a raw YouTube watch page
   const resolvedSrc = (() => {
@@ -69,6 +75,8 @@ export default function VerticalShortCard({
     if (videoRef.current && videoRef.current.readyState >= 1) {
       try {
         videoRef.current.currentTime = clip.startTime;
+        if (videoTopRef.current) videoTopRef.current.currentTime = clip.startTime;
+        if (videoBottomRef.current) videoBottomRef.current.currentTime = clip.startTime;
         setCurrentTime(0);
       } catch (e) {}
     }
@@ -80,16 +88,21 @@ export default function VerticalShortCard({
 
     if (isPlaying) {
       videoRef.current.pause();
+      if (videoTopRef.current) videoTopRef.current.pause();
+      if (videoBottomRef.current) videoBottomRef.current.pause();
       setIsPlaying(false);
     } else {
       setHasError(false);
       setIsLoading(true);
 
-      // If outside clip range, seek to start
-      if (videoRef.current.currentTime >= clip.endTime || videoRef.current.currentTime < clip.startTime) {
-        try {
-          videoRef.current.currentTime = clip.startTime;
-        } catch (e) {}
+      const cur = videoRef.current.currentTime;
+      if (cur >= clip.endTime || cur < clip.startTime) {
+        videoRef.current.currentTime = clip.startTime;
+        if (videoTopRef.current) videoTopRef.current.currentTime = clip.startTime;
+        if (videoBottomRef.current) videoBottomRef.current.currentTime = clip.startTime;
+      } else {
+        if (videoTopRef.current) videoTopRef.current.currentTime = cur;
+        if (videoBottomRef.current) videoBottomRef.current.currentTime = cur;
       }
 
       const playPromise = videoRef.current.play();
@@ -99,6 +112,8 @@ export default function VerticalShortCard({
             setIsPlaying(true);
             setIsLoading(false);
             setHasError(false);
+            if (videoTopRef.current) videoTopRef.current.play().catch(() => {});
+            if (videoBottomRef.current) videoBottomRef.current.play().catch(() => {});
           })
           .catch((err) => {
             console.warn(`[VerticalShortCard ${clip.label}] initial play error, reloading:`, err);
@@ -109,6 +124,8 @@ export default function VerticalShortCard({
                   setIsPlaying(true);
                   setIsLoading(false);
                   setHasError(false);
+                  if (videoTopRef.current) videoTopRef.current.play().catch(() => {});
+                  if (videoBottomRef.current) videoBottomRef.current.play().catch(() => {});
                 })
                 .catch((reloadErr) => {
                   console.warn(`[VerticalShortCard ${clip.label}] reload play error:`, reloadErr);
@@ -126,10 +143,18 @@ export default function VerticalShortCard({
       // Loop within clip range
       if (rawTime >= clip.endTime) {
         videoRef.current.currentTime = clip.startTime;
+        if (videoTopRef.current) videoTopRef.current.currentTime = clip.startTime;
+        if (videoBottomRef.current) videoBottomRef.current.currentTime = clip.startTime;
         setCurrentTime(0);
       } else {
         const offset = Math.max(0, rawTime - clip.startTime);
         setCurrentTime(offset);
+        if (videoTopRef.current && Math.abs(videoTopRef.current.currentTime - rawTime) > 0.15) {
+          videoTopRef.current.currentTime = rawTime;
+        }
+        if (videoBottomRef.current && Math.abs(videoBottomRef.current.currentTime - rawTime) > 0.15) {
+          videoBottomRef.current.currentTime = rawTime;
+        }
       }
     }
   };
@@ -139,7 +164,10 @@ export default function VerticalShortCard({
     const offset = parseFloat(e.target.value);
     setCurrentTime(offset);
     if (videoRef.current) {
-      videoRef.current.currentTime = clip.startTime + offset;
+      const targetT = clip.startTime + offset;
+      videoRef.current.currentTime = targetT;
+      if (videoTopRef.current) videoTopRef.current.currentTime = targetT;
+      if (videoBottomRef.current) videoBottomRef.current.currentTime = targetT;
     }
   };
 
@@ -199,6 +227,11 @@ export default function VerticalShortCard({
           <span className="text-xs font-mono font-medium text-gray-300">
             {formatTime(clip.startTime)} – {formatTime(clip.endTime)} ({formatTime(clip.duration)})
           </span>
+          {clip.videoSettings?.cropMode === "split" && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              Split 2-Box
+            </span>
+          )}
         </div>
 
         <button
@@ -214,15 +247,22 @@ export default function VerticalShortCard({
       </div>
 
       {/* 9:16 Vertical Video Frame */}
-      <div className="relative aspect-[9/16] w-full bg-[#07080E] overflow-hidden flex items-center justify-center">
-        {/* Always keep HTML5 Video Element Mounted in the DOM */}
+      <div
+        className="relative aspect-[9/16] w-full bg-[#07080E] overflow-hidden flex items-center justify-center cursor-pointer select-none"
+        onClick={togglePlay}
+      >
+        {/* Master HTML5 Video Element (Hidden if split-screen is active) */}
         <video
           ref={videoRef}
           src={resolvedSrc}
           poster={videoMetadata?.thumbnailUrl || "/samples/demo-thumbnail.jpg"}
           muted={isMuted}
           onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
+          onLoadedMetadata={() => {
+            handleLoadedMetadata();
+            if (videoTopRef.current) videoTopRef.current.currentTime = clip.startTime;
+            if (videoBottomRef.current) videoBottomRef.current.currentTime = clip.startTime;
+          }}
           onCanPlay={() => {
             setIsLoading(false);
             setIsLoaded(true);
@@ -230,14 +270,64 @@ export default function VerticalShortCard({
           onPlaying={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onError={handleError}
-          className="w-full h-full object-cover scale-[1.02]"
-          onClick={togglePlay}
+          className={isSplit ? "hidden" : "w-full h-full object-cover scale-[1.02]"}
           playsInline
           preload="auto"
         />
 
-        {/* Thumbnail backdrop before first play */}
-        {!isPlaying && !isLoaded && (
+        {/* Dual-Box Split-Screen Stacked Video View */}
+        {isSplit && (
+          <div className="absolute inset-0 flex flex-col pointer-events-none z-10">
+            {/* Top Half: Box 1 */}
+            <div className="relative h-1/2 w-full overflow-hidden border-b-2 border-purple-500/50 bg-black">
+              <video
+                ref={videoTopRef}
+                src={resolvedSrc}
+                muted
+                loop
+                playsInline
+                preload="auto"
+                className="absolute pointer-events-none"
+                style={{
+                  width: `${(100 / (b1.width || 45)) * 100}%`,
+                  height: `${(100 / (b1.height || 80)) * 100}%`,
+                  left: `-${((b1.x || 5) / (b1.width || 45)) * 100}%`,
+                  top: `-${((b1.y || 10) / (b1.height || 80)) * 100}%`,
+                  maxWidth: "none",
+                }}
+              />
+              <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-[#00F0FF]/90 text-black text-[9px] font-mono font-bold shadow">
+                Box 1 (Top)
+              </span>
+            </div>
+
+            {/* Bottom Half: Box 2 */}
+            <div className="relative h-1/2 w-full overflow-hidden bg-black">
+              <video
+                ref={videoBottomRef}
+                src={resolvedSrc}
+                muted
+                loop
+                playsInline
+                preload="auto"
+                className="absolute pointer-events-none"
+                style={{
+                  width: `${(100 / (b2.width || 45)) * 100}%`,
+                  height: `${(100 / (b2.height || 80)) * 100}%`,
+                  left: `-${((b2.x || 50) / (b2.width || 45)) * 100}%`,
+                  top: `-${((b2.y || 10) / (b2.height || 80)) * 100}%`,
+                  maxWidth: "none",
+                }}
+              />
+              <span className="absolute bottom-10 left-2 px-1.5 py-0.5 rounded bg-[#A855F7]/90 text-white text-[9px] font-mono font-bold shadow">
+                Box 2 (Bottom)
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Thumbnail backdrop before first play (for non-split mode) */}
+        {!isSplit && !isPlaying && !isLoaded && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={videoMetadata?.thumbnailUrl || "/samples/demo-thumbnail.jpg"}

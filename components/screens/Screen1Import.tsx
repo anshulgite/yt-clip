@@ -16,6 +16,7 @@ import {
   X,
   Loader2,
   CheckCircle,
+  Columns2,
 } from "lucide-react";
 import { useClipStore } from "@/stores/clipStore";
 import { formatTime } from "@/lib/utils";
@@ -242,7 +243,7 @@ export default function Screen1Import() {
       )}
 
       {/* Feature Highlight Pills */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-[#121426] border border-[#212444] flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
             <Scissors className="w-5 h-5 text-purple-400" />
@@ -260,6 +261,19 @@ export default function Screen1Import() {
           <div>
             <h3 className="text-sm font-semibold text-white">AI Captions</h3>
             <p className="text-xs text-gray-400">Auto-generate accurate subtitles</p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#121426] border border-cyan-500/30 flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+            <Columns2 className="w-5 h-5 text-cyan-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-white">Split-Screen (2-Box)</h3>
+              <span className="text-[9px] px-1 py-0.2 rounded font-extrabold bg-cyan-400 text-black">NEW</span>
+            </div>
+            <p className="text-xs text-gray-400">Podcast 2 speakers stacked 9:16</p>
           </div>
         </div>
 

@@ -120,49 +120,11 @@ export async function renderClipVideo(params: RenderClipParams): Promise<string>
     }
   }
 
-  // Video Filter pipeline
-  let filterChain: string[] = [];
-
-  if (aspectRatio === "9:16") {
-    // Center crop 16:9 to 9:16 or scale
-    const zoom = videoSettings?.zoomScale || 1.0;
-    if (zoom > 1.0) {
-      filterChain.push(`crop=w=ih*(9/16)/${zoom}:h=ih/${zoom}:x=(iw-ow)/2:y=(ih-oh)/2`);
-    } else {
-      filterChain.push(`crop=w=ih*(9/16):h=ih:x=(iw-ow)/2:y=0`);
-    }
-    filterChain.push(`scale=${targetWidth}:${targetHeight}:flags=bicubic`);
-  } else if (aspectRatio === "1:1") {
-    filterChain.push(`crop=w=ih:h=ih:x=(iw-ow)/2:y=0`);
-    filterChain.push(`scale=${targetWidth}:${targetHeight}`);
-  } else {
-    filterChain.push(`scale=${targetWidth}:${targetHeight}`);
-  }
-
-  // Handle Clip Border (Neon, Blur, Solid)
-  if (videoSettings?.borderType && videoSettings.borderType !== "none") {
-    const rawColor = videoSettings.borderColor || "#00F0FF";
-    const bColor = rawColor.replace("#", "0x");
-    const baseT = videoSettings.borderWidth || 10;
-    const scaledT = Math.max(2, Math.round(baseT * (targetWidth / 360)));
-
-    if (videoSettings.borderType === "solid") {
-      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}`);
-    } else if (videoSettings.borderType === "neon") {
-      const tGlow1 = Math.round(scaledT * 2.2);
-      const tGlow2 = Math.round(scaledT * 1.5);
-      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.25:t=${tGlow1}`);
-      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.55:t=${tGlow2}`);
-      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}`);
-    } else if (videoSettings.borderType === "blur") {
-      const tBlur1 = Math.round(scaledT * 2.2);
-      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=0x000000@0.55:t=${tBlur1}`);
-      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.6:t=${scaledT}`);
-    }
-  }
-
-  // Handle Subtitle burning
+  const isSplitMode = aspectRatio === "9:16" && videoSettings?.cropMode === "split";
+  let cmd = "";
   let tempAssPath: string | null = null;
+  const audioArgs = keepOriginalAudio ? "-c:a aac -b:a 192k" : "-an";
+
   const shouldBurnSubtitles = Boolean(
     burnCaptions &&
     captions &&
@@ -172,19 +134,117 @@ export async function renderClipVideo(params: RenderClipParams): Promise<string>
     captionSettings.style !== "none"
   );
 
-  if (shouldBurnSubtitles && captionSettings && captions) {
-    tempAssPath = outputPath.replace(/\.mp4$/, "_sub.ass");
-    generateAssSubtitles(captions, captionSettings, tempAssPath);
+  if (isSplitMode) {
+    // Dual-Box Split-Screen pipeline: Crop Box 1 & Box 2 (9:8 aspect), scale to 1080x960, and vstack
+    const b1 = videoSettings?.dualBox?.box1 || { x: 5, y: 10, width: 45, height: 80 };
+    const b2 = videoSettings?.dualBox?.box2 || { x: 50, y: 10, width: 45, height: 80 };
 
-    // Escape Windows backslashes for FFmpeg filter
-    const escapedAssPath = tempAssPath.replace(/\\/g, "/").replace(/:/g, "\\:");
-    filterChain.push(`ass='${escapedAssPath}'`);
+    const w1 = Math.max(0.05, Math.min(1, (b1.width || 45) / 100));
+    const h1 = Math.max(0.05, Math.min(1, (b1.height || 80) / 100));
+    const x1 = Math.max(0, Math.min(1 - w1, (b1.x || 5) / 100));
+    const y1 = Math.max(0, Math.min(1 - h1, (b1.y || 10) / 100));
+
+    const w2 = Math.max(0.05, Math.min(1, (b2.width || 45) / 100));
+    const h2 = Math.max(0.05, Math.min(1, (b2.height || 80) / 100));
+    const x2 = Math.max(0, Math.min(1 - w2, (b2.x || 50) / 100));
+    const y2 = Math.max(0, Math.min(1 - h2, (b2.y || 10) / 100));
+
+    const topHeight = Math.round(targetHeight / 2);
+    const bottomHeight = targetHeight - topHeight;
+
+    const crop1 = `crop=w=trunc(iw*${w1.toFixed(4)}/2)*2:h=trunc(ih*${h1.toFixed(4)}/2)*2:x=trunc(iw*${x1.toFixed(4)}/2)*2:y=trunc(ih*${y1.toFixed(4)}/2)*2`;
+    const crop2 = `crop=w=trunc(iw*${w2.toFixed(4)}/2)*2:h=trunc(ih*${h2.toFixed(4)}/2)*2:x=trunc(iw*${x2.toFixed(4)}/2)*2:y=trunc(ih*${y2.toFixed(4)}/2)*2`;
+
+    let filterComplex = `[0:v]split=2[v1][v2];[v1]${crop1},scale=${targetWidth}:${topHeight}:flags=bicubic[top];[v2]${crop2},scale=${targetWidth}:${bottomHeight}:flags=bicubic[bottom];[top][bottom]vstack[vstacked]`;
+    let currentVideoTag = "vstacked";
+
+    // Handle Clip Border (Neon, Blur, Solid)
+    if (videoSettings?.borderType && videoSettings.borderType !== "none") {
+      const rawColor = videoSettings.borderColor || "#00F0FF";
+      const bColor = rawColor.replace("#", "0x");
+      const baseT = videoSettings.borderWidth || 10;
+      const scaledT = Math.max(2, Math.round(baseT * (targetWidth / 360)));
+
+      if (videoSettings.borderType === "solid") {
+        filterComplex += `;[${currentVideoTag}]drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}[bordered]`;
+        currentVideoTag = "bordered";
+      } else if (videoSettings.borderType === "neon") {
+        const tGlow1 = Math.round(scaledT * 2.2);
+        const tGlow2 = Math.round(scaledT * 1.5);
+        filterComplex += `;[${currentVideoTag}]drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.25:t=${tGlow1},drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.55:t=${tGlow2},drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}[bordered]`;
+        currentVideoTag = "bordered";
+      } else if (videoSettings.borderType === "blur") {
+        const tBlur1 = Math.round(scaledT * 2.2);
+        filterComplex += `;[${currentVideoTag}]drawbox=x=0:y=0:w=iw:h=ih:color=0x000000@0.55:t=${tBlur1},drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.6:t=${scaledT}[bordered]`;
+        currentVideoTag = "bordered";
+      }
+    }
+
+    // Handle Subtitle burning
+    if (shouldBurnSubtitles && captionSettings && captions) {
+      tempAssPath = outputPath.replace(/\.mp4$/, "_sub.ass");
+      generateAssSubtitles(captions, captionSettings, tempAssPath);
+      const escapedAssPath = tempAssPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+      filterComplex += `;[${currentVideoTag}]ass='${escapedAssPath}'[subbed]`;
+      currentVideoTag = "subbed";
+    }
+
+    cmd = `"${ffmpeg}" -y -ss ${startTime} -t ${duration} -i "${inputPath}" -filter_complex "${filterComplex}" -map "[${currentVideoTag}]" -map 0:a? -r ${frameRate} -c:v libx264 -preset fast -crf 22 -pix_fmt yuv420p ${audioArgs} -movflags +faststart "${outputPath}"`;
+  } else {
+    // Video Filter pipeline (Single crop default)
+    let filterChain: string[] = [];
+
+    if (aspectRatio === "9:16") {
+      // Center crop 16:9 to 9:16 or scale
+      const zoom = videoSettings?.zoomScale || 1.0;
+      if (zoom > 1.0) {
+        filterChain.push(`crop=w=ih*(9/16)/${zoom}:h=ih/${zoom}:x=(iw-ow)/2:y=(ih-oh)/2`);
+      } else {
+        filterChain.push(`crop=w=ih*(9/16):h=ih:x=(iw-ow)/2:y=0`);
+      }
+      filterChain.push(`scale=${targetWidth}:${targetHeight}:flags=bicubic`);
+    } else if (aspectRatio === "1:1") {
+      filterChain.push(`crop=w=ih:h=ih:x=(iw-ow)/2:y=0`);
+      filterChain.push(`scale=${targetWidth}:${targetHeight}`);
+    } else {
+      filterChain.push(`scale=${targetWidth}:${targetHeight}`);
+    }
+
+    // Handle Clip Border (Neon, Blur, Solid)
+    if (videoSettings?.borderType && videoSettings.borderType !== "none") {
+      const rawColor = videoSettings.borderColor || "#00F0FF";
+      const bColor = rawColor.replace("#", "0x");
+      const baseT = videoSettings.borderWidth || 10;
+      const scaledT = Math.max(2, Math.round(baseT * (targetWidth / 360)));
+
+      if (videoSettings.borderType === "solid") {
+        filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}`);
+      } else if (videoSettings.borderType === "neon") {
+        const tGlow1 = Math.round(scaledT * 2.2);
+        const tGlow2 = Math.round(scaledT * 1.5);
+        filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.25:t=${tGlow1}`);
+        filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.55:t=${tGlow2}`);
+        filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}`);
+      } else if (videoSettings.borderType === "blur") {
+        const tBlur1 = Math.round(scaledT * 2.2);
+        filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=0x000000@0.55:t=${tBlur1}`);
+        filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.6:t=${scaledT}`);
+      }
+    }
+
+    // Handle Subtitle burning
+    if (shouldBurnSubtitles && captionSettings && captions) {
+      tempAssPath = outputPath.replace(/\.mp4$/, "_sub.ass");
+      generateAssSubtitles(captions, captionSettings, tempAssPath);
+
+      // Escape Windows backslashes for FFmpeg filter
+      const escapedAssPath = tempAssPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+      filterChain.push(`ass='${escapedAssPath}'`);
+    }
+
+    const vfString = filterChain.join(",");
+    cmd = `"${ffmpeg}" -y -ss ${startTime} -t ${duration} -i "${inputPath}" -vf "${vfString}" -r ${frameRate} -c:v libx264 -preset fast -crf 22 -pix_fmt yuv420p ${audioArgs} -movflags +faststart "${outputPath}"`;
   }
-
-  const vfString = filterChain.join(",");
-  const audioArgs = keepOriginalAudio ? "-c:a aac -b:a 192k" : "-an";
-
-  const cmd = `"${ffmpeg}" -y -ss ${startTime} -t ${duration} -i "${inputPath}" -vf "${vfString}" -r ${frameRate} -c:v libx264 -preset fast -crf 22 -pix_fmt yuv420p ${audioArgs} -movflags +faststart "${outputPath}"`;
 
   onProgress?.(10, `Starting FFmpeg encoding for ${duration}s clip (${targetWidth}x${targetHeight})...`);
 

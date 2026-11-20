@@ -7,6 +7,7 @@ import {
   ExportSettings,
   ExportJob,
   CaptionSegment,
+  DualBoxSettings,
 } from "@/types";
 
 const CLIP_COLORS = [
@@ -18,6 +19,11 @@ const CLIP_COLORS = [
   "#6366F1", // Indigo (Clip F)
   "#14B8A6", // Teal (Clip G)
 ];
+
+export const DEFAULT_DUAL_BOX: DualBoxSettings = {
+  box1: { x: 5, y: 10, width: 45, height: 80 },  // Left speaker (Top)
+  box2: { x: 50, y: 10, width: 45, height: 80 }, // Right speaker (Bottom)
+};
 
 const DEFAULT_CAPTION_SETTINGS: ClipCaptionCustomization = {
   style: "highlight",
@@ -44,6 +50,7 @@ const DEFAULT_VIDEO_SETTINGS: ClipVideoCustomization = {
   borderType: "none",
   borderColor: "#00F0FF",
   borderWidth: 10,
+  dualBox: DEFAULT_DUAL_BOX,
 };
 
 const DEFAULT_EXPORT_SETTINGS: ExportSettings = {

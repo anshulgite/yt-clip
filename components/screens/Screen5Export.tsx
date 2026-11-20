@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Subtitles,
   Loader2,
+  Columns2,
 } from "lucide-react";
 import { useClipStore } from "@/stores/clipStore";
 import { formatTime } from "@/lib/utils";
@@ -345,9 +346,17 @@ export default function Screen5Export() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                    <Subtitles className="w-3 h-3" />
-                    <span>CC</span>
+                  <div className="flex items-center gap-1.5">
+                    {clip.videoSettings?.cropMode === "split" && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-500/20 px-2 py-0.5 rounded border border-cyan-500/30">
+                        <Columns2 className="w-3 h-3" />
+                        <span>Split 2-Box</span>
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      <Subtitles className="w-3 h-3" />
+                      <span>CC</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -362,6 +371,13 @@ export default function Screen5Export() {
             </div>
 
             <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Layout Format</span>
+                <span className="font-semibold text-white">
+                  {activeClip?.videoSettings?.cropMode === "split" ? "✂️ Split-Screen (2-Box Stacked)" : "Standard 9:16"}
+                </span>
+              </div>
+
               <div className="flex items-center justify-between">
                 <span className="text-gray-400">Total Clips</span>
                 <span className="font-bold text-white">{clips.length}</span>
@@ -388,9 +404,17 @@ export default function Screen5Export() {
         {/* Right Column: Live 9:16 Preview Card (3 cols) */}
         <div className="xl:col-span-3">
           <div className="sticky top-28 space-y-2">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
-              Active Preview ({activeClip?.label})
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">
+                Active Preview ({activeClip?.label})
+              </span>
+              {activeClip?.videoSettings?.cropMode === "split" && (
+                <span className="flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-500/20 px-2 py-0.5 rounded border border-cyan-500/30">
+                  <Columns2 className="w-3 h-3" />
+                  <span>Split 2-Box</span>
+                </span>
+              )}
+            </div>
             {activeClip && (
               <VerticalShortCard
                 clip={activeClip}

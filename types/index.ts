@@ -58,9 +58,22 @@ export interface ClipCaptionCustomization {
 }
 
 export type BorderType = "none" | "solid" | "neon" | "blur";
+export type CropMode = "center" | "face" | "left" | "right" | "custom" | "split";
+
+export interface CropBox {
+  x: number;      // 0 to 100 (% of video width)
+  y: number;      // 0 to 100 (% of video height)
+  width: number;  // 0 to 100 (% of video width)
+  height: number; // 0 to 100 (% of video height, aspect ratio 9:8)
+}
+
+export interface DualBoxSettings {
+  box1: CropBox; // Top speaker
+  box2: CropBox; // Bottom speaker
+}
 
 export interface ClipVideoCustomization {
-  cropMode: "center" | "face" | "left" | "right" | "custom";
+  cropMode: CropMode;
   zoomScale: number;
   panX: number;
   panY: number;
@@ -68,6 +81,7 @@ export interface ClipVideoCustomization {
   borderType?: BorderType;
   borderColor?: string;
   borderWidth?: number;
+  dualBox?: DualBoxSettings;
 }
 
 export interface Clip {

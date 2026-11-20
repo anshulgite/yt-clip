@@ -12,6 +12,7 @@ import {
   AlignRight,
   Eye,
   EyeOff,
+  Columns2,
 } from "lucide-react";
 import { useClipStore } from "@/stores/clipStore";
 import VerticalShortCard from "../video/VerticalShortCard";
@@ -33,6 +34,7 @@ export default function Screen3Captions() {
     setActiveClipId,
     updateCaptionSettings,
     updateAllCaptionSettings,
+    updateAllVideoSettings,
     updateClip,
     videoMetadata,
     setStep,
@@ -80,6 +82,52 @@ export default function Screen3Captions() {
         <p className="text-gray-400 text-sm">
           AI has generated captions for your selected clips. Review, edit, customize, or skip captions before export.
         </p>
+      </div>
+
+      {/* Prominent Cropping & Layout Mode Switcher */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#171A34] via-[#121428] to-[#1F1735] border border-cyan-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <Columns2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white">Clip Cropping & Layout</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-cyan-400 to-purple-400 text-black">
+                NEW FEATURE
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Switch between standard single 9:16 vertical crop or dual-box stacked split-screen (e.g. podcast 2 speakers).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-[#0E1020] p-1.5 rounded-xl border border-[#252848]">
+          <button
+            type="button"
+            onClick={() => updateAllVideoSettings({ cropMode: "center" })}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeClip?.videoSettings?.cropMode !== "split"
+                ? "bg-purple-600 text-white shadow-md"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <span>📱 Standard 9:16</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => updateAllVideoSettings({ cropMode: "split" })}
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              activeClip?.videoSettings?.cropMode === "split"
+                ? "bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_0_15px_rgba(0,240,255,0.4)]"
+                : "text-cyan-300 hover:text-white hover:bg-cyan-950/40 border border-cyan-500/30"
+            }`}
+          >
+            <Columns2 className="w-4 h-4" />
+            <span>✂️ Split-Screen (2-Box)</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: 3 Vertical 9:16 Previews + Caption Settings Panel */}
