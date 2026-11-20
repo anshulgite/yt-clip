@@ -57,12 +57,17 @@ export interface ClipCaptionCustomization {
   enabled?: boolean; // When false, captions are skipped/omitted
 }
 
+export type BorderType = "none" | "solid" | "neon" | "blur";
+
 export interface ClipVideoCustomization {
   cropMode: "center" | "face" | "left" | "right" | "custom";
   zoomScale: number;
   panX: number;
   panY: number;
   blurBackground: boolean;
+  borderType?: BorderType;
+  borderColor?: string;
+  borderWidth?: number;
 }
 
 export interface Clip {

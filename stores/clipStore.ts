@@ -41,6 +41,9 @@ const DEFAULT_VIDEO_SETTINGS: ClipVideoCustomization = {
   panX: 0,
   panY: 0,
   blurBackground: true,
+  borderType: "none",
+  borderColor: "#00F0FF",
+  borderWidth: 10,
 };
 
 const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
@@ -83,6 +86,7 @@ interface ClipStore {
   updateCaptionSettings: (clipId: string, settings: Partial<ClipCaptionCustomization>) => void;
   updateAllCaptionSettings: (settings: Partial<ClipCaptionCustomization>) => void;
   updateVideoSettings: (clipId: string, settings: Partial<ClipVideoCustomization>) => void;
+  updateAllVideoSettings: (settings: Partial<ClipVideoCustomization>) => void;
   updateExportSettings: (settings: Partial<ExportSettings>) => void;
   setCurrentJob: (job: ExportJob | null) => void;
   updateExportJob: (updates: Partial<ExportJob>) => void;
@@ -282,6 +286,15 @@ export const useClipStore = create<ClipStore>((set, get) => ({
           ? { ...c, videoSettings: { ...c.videoSettings, ...settings } }
           : c
       ),
+    }));
+  },
+
+  updateAllVideoSettings: (settings) => {
+    set((state) => ({
+      clips: state.clips.map((c) => ({
+        ...c,
+        videoSettings: { ...c.videoSettings, ...settings },
+      })),
     }));
   },
 

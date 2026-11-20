@@ -265,6 +265,26 @@ export default function VerticalShortCard({
           </div>
         )}
 
+        {/* Clip Border Overlay (Neon / Blur / Solid) */}
+        {clip.videoSettings?.borderType && clip.videoSettings.borderType !== "none" && (
+          <div
+            className="absolute inset-0 pointer-events-none z-10 transition-all rounded-3xl"
+            style={{
+              border: `${Math.round((clip.videoSettings.borderWidth || 10) * 0.75)}px solid ${
+                clip.videoSettings.borderType === "blur"
+                  ? `${clip.videoSettings.borderColor || "#00F0FF"}99`
+                  : clip.videoSettings.borderColor || "#00F0FF"
+              }`,
+              boxShadow:
+                clip.videoSettings.borderType === "neon"
+                  ? `0 0 ${(clip.videoSettings.borderWidth || 10) * 1.5}px ${clip.videoSettings.borderColor || "#00F0FF"}, inset 0 0 ${(clip.videoSettings.borderWidth || 10)}px ${clip.videoSettings.borderColor || "#00F0FF"}`
+                  : clip.videoSettings.borderType === "blur"
+                  ? `0 0 ${(clip.videoSettings.borderWidth || 10) * 2}px ${(clip.videoSettings.borderWidth || 10) * 0.75}px ${clip.videoSettings.borderColor || "#00F0FF"}66, inset 0 0 ${(clip.videoSettings.borderWidth || 10) * 1.5}px rgba(0,0,0,0.65)`
+                  : "none",
+            }}
+          />
+        )}
+
         {/* Superimposed Subtitle Banner (Only if captions are enabled!) */}
         {areCaptionsEnabled && (
         <div

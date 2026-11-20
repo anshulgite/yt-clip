@@ -139,6 +139,28 @@ export async function renderClipVideo(params: RenderClipParams): Promise<string>
     filterChain.push(`scale=${targetWidth}:${targetHeight}`);
   }
 
+  // Handle Clip Border (Neon, Blur, Solid)
+  if (videoSettings?.borderType && videoSettings.borderType !== "none") {
+    const rawColor = videoSettings.borderColor || "#00F0FF";
+    const bColor = rawColor.replace("#", "0x");
+    const baseT = videoSettings.borderWidth || 10;
+    const scaledT = Math.max(2, Math.round(baseT * (targetWidth / 360)));
+
+    if (videoSettings.borderType === "solid") {
+      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}`);
+    } else if (videoSettings.borderType === "neon") {
+      const tGlow1 = Math.round(scaledT * 2.2);
+      const tGlow2 = Math.round(scaledT * 1.5);
+      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.25:t=${tGlow1}`);
+      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.55:t=${tGlow2}`);
+      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@1.0:t=${scaledT}`);
+    } else if (videoSettings.borderType === "blur") {
+      const tBlur1 = Math.round(scaledT * 2.2);
+      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=0x000000@0.55:t=${tBlur1}`);
+      filterChain.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${bColor}@0.6:t=${scaledT}`);
+    }
+  }
+
   // Handle Subtitle burning
   let tempAssPath: string | null = null;
   const shouldBurnSubtitles = Boolean(
@@ -150,7 +172,7 @@ export async function renderClipVideo(params: RenderClipParams): Promise<string>
     captionSettings.style !== "none"
   );
 
-  if (shouldBurnSubtitles && captionSettings) {
+  if (shouldBurnSubtitles && captionSettings && captions) {
     tempAssPath = outputPath.replace(/\.mp4$/, "_sub.ass");
     generateAssSubtitles(captions, captionSettings, tempAssPath);
 

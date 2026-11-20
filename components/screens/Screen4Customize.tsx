@@ -19,13 +19,15 @@ import {
   Check,
   Eye,
   EyeOff,
+  Square,
 } from "lucide-react";
 import { useClipStore } from "@/stores/clipStore";
 import { formatTime } from "@/lib/utils";
-import { CaptionStyle, CaptionFont, TextBackground } from "@/types";
+import { CaptionStyle, CaptionFont, TextBackground, BorderType } from "@/types";
 
 const TEXT_COLORS = ["#FFFFFF", "#FACC15", "#8B5CF6", "#0EA5E9", "#10B981", "#EC4899"];
 const HIGHLIGHT_COLORS = ["#FACC15", "#FEF08A", "#DDD6FE", "#BAE6FD", "#A7F3D0"];
+const BORDER_COLORS = ["#00F0FF", "#A855F7", "#22C55E", "#EC4899", "#FACC15", "#EF4444", "#FFFFFF", "#FF6B00"];
 
 export default function Screen4Customize() {
   const {
@@ -34,12 +36,13 @@ export default function Screen4Customize() {
     setActiveClipId,
     updateCaptionSettings,
     updateVideoSettings,
+    updateAllVideoSettings,
     updateAllCaptionSettings,
     videoMetadata,
     setStep,
   } = useClipStore();
 
-  const [activeTab, setActiveTab] = useState<"captions" | "video" | "layout" | "branding">("captions");
+  const [activeTab, setActiveTab] = useState<"captions" | "border" | "video" | "layout" | "branding">("captions");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
@@ -254,6 +257,26 @@ export default function Screen4Customize() {
               />
             )}
 
+            {/* Clip Border Overlay (Neon / Blur / Solid) */}
+            {vidSettings?.borderType && vidSettings.borderType !== "none" && (
+              <div
+                className="absolute inset-0 pointer-events-none z-10 rounded-3xl transition-all"
+                style={{
+                  border: `${vidSettings.borderWidth || 10}px solid ${
+                    vidSettings.borderType === "blur"
+                      ? `${vidSettings.borderColor || "#00F0FF"}99`
+                      : vidSettings.borderColor || "#00F0FF"
+                  }`,
+                  boxShadow:
+                    vidSettings.borderType === "neon"
+                      ? `0 0 ${(vidSettings.borderWidth || 10) * 2.2}px ${vidSettings.borderColor || "#00F0FF"}, inset 0 0 ${(vidSettings.borderWidth || 10) * 1.5}px ${vidSettings.borderColor || "#00F0FF"}`
+                      : vidSettings.borderType === "blur"
+                      ? `0 0 ${(vidSettings.borderWidth || 10) * 2.5}px ${(vidSettings.borderWidth || 10)}px ${vidSettings.borderColor || "#00F0FF"}66, inset 0 0 ${(vidSettings.borderWidth || 10) * 2}px rgba(0,0,0,0.65)`
+                      : "none",
+                }}
+              />
+            )}
+
             {/* Draggable/Interactive Caption Box with Handles */}
             {isCaptionsEnabled ? (
               <div
@@ -364,6 +387,7 @@ export default function Screen4Customize() {
           <div className="flex items-center p-1 bg-[#17192F] rounded-xl border border-[#232646]">
             {[
               { id: "captions", label: "Captions", icon: Subtitles },
+              { id: "border", label: "Border", icon: Square },
               { id: "video", label: "Video", icon: Video },
               { id: "layout", label: "Layout", icon: Layout },
               { id: "branding", label: "Branding", icon: Shield },
@@ -666,6 +690,147 @@ export default function Screen4Customize() {
                     <span>Don&apos;t want captions? Remove Captions</span>
                   </button>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab Content: Border */}
+          {activeTab === "border" && vidSettings && activeClip && (
+            <div className="space-y-4 animate-fade-in">
+              {/* Border Type Selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-300">Border Style</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { id: "none", label: "None", desc: "No Border" },
+                    { id: "neon", label: "Neon Glow", desc: "Cyberpunk" },
+                    { id: "blur", label: "Blur Soft", desc: "Frosted" },
+                    { id: "solid", label: "Solid", desc: "Clean" },
+                  ].map((b) => {
+                    const isSelected = (vidSettings.borderType || "none") === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => updateVideoSettings(activeClip.id, { borderType: b.id as BorderType })}
+                        className={`p-2 rounded-xl text-center border transition-all ${
+                          isSelected
+                            ? "bg-purple-600/30 border-purple-500 text-purple-300 font-bold shadow-sm"
+                            : "bg-[#181A30] border-[#252848] text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        <span className="text-xs block font-bold">{b.label}</span>
+                        <span className="text-[9px] block text-gray-400">{b.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Only show color & thickness if border is enabled */}
+              {vidSettings.borderType && vidSettings.borderType !== "none" && (
+                <>
+                  {/* Border Color */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-gray-300">Border Color</label>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono text-purple-400">{vidSettings.borderColor || "#00F0FF"}</span>
+                        <input
+                          type="color"
+                          value={vidSettings.borderColor || "#00F0FF"}
+                          onChange={(e) => updateVideoSettings(activeClip.id, { borderColor: e.target.value })}
+                          className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {BORDER_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => updateVideoSettings(activeClip.id, { borderColor: c })}
+                          style={{ backgroundColor: c }}
+                          className={`w-7 h-7 rounded-lg transition-all ${
+                            (vidSettings.borderColor || "#00F0FF") === c
+                              ? "ring-2 ring-white scale-110 shadow-lg"
+                              : "opacity-75 hover:opacity-100 hover:scale-105"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Border Thickness */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-gray-300">Border Thickness</span>
+                      <span className="font-mono text-purple-400 font-bold">{vidSettings.borderWidth || 10} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="4"
+                      max="28"
+                      step="2"
+                      value={vidSettings.borderWidth || 10}
+                      onChange={(e) => updateVideoSettings(activeClip.id, { borderWidth: parseInt(e.target.value) })}
+                      className="w-full h-1.5 bg-[#1F223D] rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-300">Quick Presets</label>
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => updateVideoSettings(activeClip.id, { borderType: "neon", borderColor: "#00F0FF", borderWidth: 12 })}
+                        className="p-2 rounded-xl bg-[#181A30] border border-[#252848] hover:border-cyan-500/50 text-cyan-300 text-left transition-all"
+                      >
+                        ⚡ Cyber Cyan (Neon)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateVideoSettings(activeClip.id, { borderType: "neon", borderColor: "#A855F7", borderWidth: 14 })}
+                        className="p-2 rounded-xl bg-[#181A30] border border-[#252848] hover:border-purple-500/50 text-purple-300 text-left transition-all"
+                      >
+                        ✨ Purple Glow (Neon)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateVideoSettings(activeClip.id, { borderType: "blur", borderColor: "#FFFFFF", borderWidth: 16 })}
+                        className="p-2 rounded-xl bg-[#181A30] border border-[#252848] hover:border-white/50 text-gray-200 text-left transition-all"
+                      >
+                        🌫️ Frosted Frame (Blur)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateVideoSettings(activeClip.id, { borderType: "solid", borderColor: "#FFFFFF", borderWidth: 8 })}
+                        className="p-2 rounded-xl bg-[#181A30] border border-[#252848] hover:border-white/50 text-white text-left transition-all"
+                      >
+                        ⬜ Clean Minimal (Solid)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Apply to All Clips Button */}
+                  <div className="pt-2 border-t border-[#1F2342]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateAllVideoSettings({
+                          borderType: vidSettings.borderType,
+                          borderColor: vidSettings.borderColor,
+                          borderWidth: vidSettings.borderWidth,
+                        })
+                      }
+                      className="w-full py-2 px-3 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Apply Border to All Clips</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}
